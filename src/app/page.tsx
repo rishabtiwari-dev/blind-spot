@@ -62,6 +62,16 @@ export default function Home() {
           <div
             className="brand-logo-group"
             onClick={step === "loading" || step === "report" ? undefined : () => setStep("intro")}
+            onKeyDown={
+              step === "loading" || step === "report"
+                ? undefined
+                : (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setStep("intro");
+                    }
+                  }
+            }
             role={step === "loading" || step === "report" ? undefined : "button"}
             tabIndex={step === "loading" || step === "report" ? undefined : 0}
             aria-label="The Blind Spot Home"

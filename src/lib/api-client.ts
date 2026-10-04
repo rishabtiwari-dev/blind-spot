@@ -8,7 +8,8 @@ export async function requestAnalysis(input: DecisionInput): Promise<AnalyzeResp
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
-    return (await res.json()) as AnalyzeResponse;
+    const data: AnalyzeResponse = await res.json();
+    return data;
   } catch {
     return {
       ok: false,

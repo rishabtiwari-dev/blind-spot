@@ -17,38 +17,127 @@ interface GeminiResponse {
 }
 
 // ---- Gemini structured-output schema (OpenAPI subset). Mirrors analysisSchema. ----
-const str = { type: "STRING" } as const;
-const obj = (fields: Record<string, unknown>) => ({
+const RESPONSE_SCHEMA = {
   type: "OBJECT",
-  properties: fields,
-  required: Object.keys(fields),
-  propertyOrdering: Object.keys(fields),
-});
-const arr = (items: unknown) => ({ type: "ARRAY", items });
-
-const RESPONSE_SCHEMA = obj({
-  blindSpots: arr(
-    obj({
-      title: str,
-      description: str,
-      whyItMatters: str,
-      severity: { type: "STRING", enum: ["high", "medium", "low"] },
-      evidence: str,
-    }),
-  ),
-  assumptions: arr(obj({ title: str, description: str, challenge: str, evidence: str })),
-  conflicts: arr(obj({ title: str, description: str, tension: str, evidence: str })),
-  missingEvidence: arr(obj({ title: str, description: str, whyItMatters: str, evidence: str })),
-  priorityMismatches: arr(
-    obj({ title: str, description: str, statedPriority: str, reasoningPattern: str }),
-  ),
-  questions: arr(obj({ question: str, whyAsk: str })),
-});
+  properties: {
+    blindSpots: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          description: { type: "STRING" },
+          whyItMatters: { type: "STRING" },
+          severity: { type: "STRING", enum: ["high", "medium", "low"] },
+          evidence: { type: "STRING" },
+        },
+        required: ["title", "description", "whyItMatters", "severity", "evidence"],
+        propertyOrdering: ["title", "description", "whyItMatters", "severity", "evidence"],
+      },
+    },
+    assumptions: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          description: { type: "STRING" },
+          challenge: { type: "STRING" },
+          evidence: { type: "STRING" },
+        },
+        required: ["title", "description", "challenge", "evidence"],
+        propertyOrdering: ["title", "description", "challenge", "evidence"],
+      },
+    },
+    conflicts: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          description: { type: "STRING" },
+          tension: { type: "STRING" },
+          evidence: { type: "STRING" },
+        },
+        required: ["title", "description", "tension", "evidence"],
+        propertyOrdering: ["title", "description", "tension", "evidence"],
+      },
+    },
+    missingEvidence: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          description: { type: "STRING" },
+          whyItMatters: { type: "STRING" },
+          evidence: { type: "STRING" },
+        },
+        required: ["title", "description", "whyItMatters", "evidence"],
+        propertyOrdering: ["title", "description", "whyItMatters", "evidence"],
+      },
+    },
+    priorityMismatches: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          title: { type: "STRING" },
+          description: { type: "STRING" },
+          statedPriority: { type: "STRING" },
+          reasoningPattern: { type: "STRING" },
+        },
+        required: ["title", "description", "statedPriority", "reasoningPattern"],
+        propertyOrdering: ["title", "description", "statedPriority", "reasoningPattern"],
+      },
+    },
+    questions: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          question: { type: "STRING" },
+          whyAsk: { type: "STRING" },
+        },
+        required: ["question", "whyAsk"],
+        propertyOrdering: ["question", "whyAsk"],
+      },
+    },
+  },
+  required: [
+    "blindSpots",
+    "assumptions",
+    "conflicts",
+    "missingEvidence",
+    "priorityMismatches",
+    "questions",
+  ],
+  propertyOrdering: [
+    "blindSpots",
+    "assumptions",
+    "conflicts",
+    "missingEvidence",
+    "priorityMismatches",
+    "questions",
+  ],
+} as const;
 
 /** Outcome of one model attempt. `retryable` failures move on to the next model. */
 type Attempt =
   | { ok: true; analysis: Analysis }
   | { ok: false; retryable: boolean; error: AppError };
+
+function logWarn(msg: string, ...args: unknown[]): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.warn(msg, ...args);
+  }
+}
+
+function logError(msg: string, ...args: unknown[]): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(msg, ...args);
+  }
+}
 
 async function attempt(model: string, apiKey: string, input: DecisionInput): Promise<Attempt> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -70,7 +159,7 @@ async function attempt(model: string, apiKey: string, input: DecisionInput): Pro
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (err) {
-    console.error(`[ai] ${model}: network/timeout`, err);
+    logError(`[ai] ${model}: network/timeout`, err);
     return {
       ok: false,
       retryable: true,
@@ -80,7 +169,7 @@ async function attempt(model: string, apiKey: string, input: DecisionInput): Pro
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    console.warn(`[ai] ${model}: HTTP ${res.status} ${body.slice(0, 500)}`);
+    logWarn(`[ai] ${model}: HTTP ${res.status} ${body.slice(0, 500)}`);
     // 404 = model retired, 429 = rate limited, 5xx = overloaded/transient
     const retryable = res.status === 404 || res.status === 429 || res.status >= 500;
     return {
@@ -94,11 +183,11 @@ async function attempt(model: string, apiKey: string, input: DecisionInput): Pro
     };
   }
 
-  const data = (await res.json().catch(() => null)) as GeminiResponse | null;
+  const data: GeminiResponse | null = await res.json().catch(() => null);
   const candidate = data?.candidates?.[0];
   const raw = candidate?.content?.parts?.map((p) => p.text ?? "").join("").trim() ?? "";
   if (!raw) {
-    console.warn(`[ai] ${model}: empty output (finishReason=${candidate?.finishReason})`);
+    logWarn(`[ai] ${model}: empty output (finishReason=${candidate?.finishReason})`);
     return {
       ok: false,
       retryable: true,
@@ -118,7 +207,7 @@ async function attempt(model: string, apiKey: string, input: DecisionInput): Pro
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    console.warn(`[ai] ${model}: unparseable JSON (finishReason=${candidate?.finishReason})`);
+    logWarn(`[ai] ${model}: unparseable JSON (finishReason=${candidate?.finishReason})`);
     return {
       ok: false,
       retryable: true,
@@ -132,7 +221,7 @@ async function attempt(model: string, apiKey: string, input: DecisionInput): Pro
 
   const result = analysisSchema.safeParse(parsed);
   if (!result.success) {
-    console.warn(`[ai] ${model}: schema validation failed`, result.error.issues.slice(0, 5));
+    logWarn(`[ai] ${model}: schema validation failed`, result.error.issues.slice(0, 5));
     return {
       ok: false,
       retryable: true,

@@ -36,7 +36,8 @@ class InMemoryRateLimiter {
 
   check(ip: string, now: number = Date.now()): RateLimitResult {
     const windowStart = now - this.config.windowMs;
-    const timestamps = (this.requests.get(ip) || []).filter((t) => t > windowStart);
+    const existing = this.requests.get(ip);
+    const timestamps = existing ? existing.filter((t) => t > windowStart) : [];
 
     if (timestamps.length >= this.config.maxRequests) {
       const oldestInWindow = timestamps[0] ?? now;

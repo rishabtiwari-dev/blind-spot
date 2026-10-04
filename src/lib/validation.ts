@@ -17,14 +17,17 @@ const field = (label: string, min: number, max: number) =>
     .min(min, `${label} must be at least ${min} characters.`)
     .max(max, `${label} must be at most ${max} characters.`);
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export const decisionInputSchema: z.ZodType<DecisionInput> = z.preprocess(
   (raw: unknown) => {
-    if (raw && typeof raw === "object") {
-      const rec = raw as Record<string, unknown>;
+    if (isRecord(raw)) {
       return {
-        ...rec,
-        priorities: rec.priorities ?? rec.factors ?? "",
-        concerns: rec.concerns ?? rec.constraints ?? "",
+        ...raw,
+        priorities: raw.priorities ?? raw.factors ?? "",
+        concerns: raw.concerns ?? raw.constraints ?? "",
       };
     }
     return raw;
@@ -100,14 +103,26 @@ export const analysisSchema: z.ZodType<Analysis> = z.object({
   questions: z.array(questionSchema),
 });
 
+function isDecisionInputField(key: unknown): key is keyof DecisionInput {
+  return (
+    key === "decision" ||
+    key === "context" ||
+    key === "reasons" ||
+    key === "priorities" ||
+    key === "concerns"
+  );
+}
+
 /** Flatten zod issues into a per-field message map. */
 export function toFieldErrors(
   error: z.ZodError,
 ): Partial<Record<keyof DecisionInput, string>> {
   const out: Partial<Record<keyof DecisionInput, string>> = {};
   for (const issue of error.issues) {
-    const key = issue.path[0] as keyof DecisionInput | undefined;
-    if (key && !out[key]) out[key] = issue.message;
+    const field = issue.path[0];
+    if (isDecisionInputField(field) && !out[field]) {
+      out[field] = issue.message;
+    }
   }
   return out;
 }

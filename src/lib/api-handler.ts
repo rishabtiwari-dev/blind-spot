@@ -56,12 +56,15 @@ export async function handleAnalyzeRequest(
 
     // 2. Payload size guard
     const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > MAX_PAYLOAD_BYTES) {
-      throw new AppError(
-        "INVALID_INPUT",
-        "Request payload exceeds maximum allowed size (32KB).",
-        413,
-      );
+    if (contentLength) {
+      const parsedLength = Number.parseInt(contentLength, 10);
+      if (Number.isFinite(parsedLength) && parsedLength > MAX_PAYLOAD_BYTES) {
+        throw new AppError(
+          "INVALID_INPUT",
+          "Request payload exceeds maximum allowed size (32KB).",
+          413,
+        );
+      }
     }
 
     const rawText = await request.text();
@@ -101,7 +104,9 @@ export async function handleAnalyzeRequest(
     );
   } catch (err) {
     if (err instanceof AppError) return fail(err);
-    console.error("Unhandled error in analyze request:", err);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Unhandled error in analyze request:", err);
+    }
     return fail(new AppError("INTERNAL_ERROR", "Something went wrong. Please try again.", 500));
   }
 }

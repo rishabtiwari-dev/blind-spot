@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ApiError, DecisionInput } from "@/types/analysis";
 import { decisionInputSchema, toFieldErrors } from "@/lib/validation";
 
@@ -91,24 +91,20 @@ export function DecisionForm({
   const [clientErrors, setClientErrors] = useState<Partial<Record<keyof DecisionInput, string>>>({});
   const [clearedServerFields, setClearedServerFields] = useState<Partial<Record<keyof DecisionInput, boolean>>>({});
 
-  // Sync if initial values change (e.g. from refine)
-  useEffect(() => {
+  // Sync if initial values change (e.g. from refine) without cascading renders
+  const [prevInitialValues, setPrevInitialValues] = useState(initialValues);
+  if (initialValues !== prevInitialValues) {
+    setPrevInitialValues(initialValues);
     setValues(initialValues);
     setClearedServerFields({});
-  }, [initialValues]);
+  }
 
-  // Reset cleared fields when a new serverError arrives
-  useEffect(() => {
+  // Reset cleared fields when a new serverError arrives without cascading renders
+  const [prevServerError, setPrevServerError] = useState(serverError);
+  if (serverError !== prevServerError) {
+    setPrevServerError(serverError);
     setClearedServerFields({});
-  }, [serverError]);
-
-  const activeServerErrors = Object.fromEntries(
-    Object.entries(serverError?.fieldErrors ?? {}).filter(
-      ([key]) => !clearedServerFields[key as keyof DecisionInput],
-    ),
-  );
-
-  const fieldErrors = { ...activeServerErrors, ...clientErrors };
+  }
 
   function handleLoadSample() {
     setValues(SAMPLE_SCENARIO);
@@ -161,7 +157,8 @@ export function DecisionForm({
 
       <form onSubmit={handleSubmit} noValidate className="decision-form">
         {FIELDS.map((f) => {
-          const errorMsg = fieldErrors[f.name];
+          const serverErrorMsg = clearedServerFields[f.name] ? undefined : serverError?.fieldErrors?.[f.name];
+          const errorMsg = clientErrors[f.name] ?? serverErrorMsg;
           const errorId = `${f.name}-error`;
           const hintId = `${f.name}-hint`;
 

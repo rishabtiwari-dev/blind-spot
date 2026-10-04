@@ -71,16 +71,13 @@ export function AnalysisResult({ decision, analysis, onReset, onRefine }: Props)
     questions,
   } = analysis;
 
-  const emptyCategories = [
-    ["Blind spots", blindSpots],
-    ["Assumptions", assumptions],
-    ["Conflicts", conflicts],
-    ["Missing evidence", missingEvidence],
-    ["Priority mismatches", priorityMismatches],
-    ["Questions", questions],
-  ]
-    .filter(([, items]) => (items as unknown[]).length === 0)
-    .map(([label]) => label as string);
+  const emptyCategories: string[] = [];
+  if (blindSpots.length === 0) emptyCategories.push("Blind spots");
+  if (assumptions.length === 0) emptyCategories.push("Assumptions");
+  if (conflicts.length === 0) emptyCategories.push("Conflicts");
+  if (missingEvidence.length === 0) emptyCategories.push("Missing evidence");
+  if (priorityMismatches.length === 0) emptyCategories.push("Priority mismatches");
+  if (questions.length === 0) emptyCategories.push("Questions");
   const nothingFound = emptyCategories.length === 6;
 
   return (
@@ -128,7 +125,7 @@ export function AnalysisResult({ decision, analysis, onReset, onRefine }: Props)
           <ul className="cards-list">
             {blindSpots.map((item, i) => (
               <li
-                key={i}
+                key={`${item.title}-${i}`}
                 className={`finding-card ${item.severity === "high" ? "severity-high" : `severity-${item.severity}`}`}
               >
                 <div className="card-topbar">
@@ -168,7 +165,7 @@ export function AnalysisResult({ decision, analysis, onReset, onRefine }: Props)
         >
           <ul className="cards-list">
             {assumptions.map((item, i) => (
-              <li key={i} className="finding-card">
+              <li key={`${item.title}-${i}`} className="finding-card">
                 <h3 className="card-heading">{item.title}</h3>
                 <p className="card-description">{item.description}</p>
                 <div className="card-metadata">
@@ -197,7 +194,7 @@ export function AnalysisResult({ decision, analysis, onReset, onRefine }: Props)
         >
           <ul className="cards-list">
             {conflicts.map((item, i) => (
-              <li key={i} className="finding-card">
+              <li key={`${item.title}-${i}`} className="finding-card">
                 <h3 className="card-heading">{item.title}</h3>
                 <p className="card-description">{item.description}</p>
                 <div className="card-metadata">
@@ -226,7 +223,7 @@ export function AnalysisResult({ decision, analysis, onReset, onRefine }: Props)
         >
           <ul className="cards-list">
             {missingEvidence.map((item, i) => (
-              <li key={i} className="finding-card">
+              <li key={`${item.title}-${i}`} className="finding-card">
                 <h3 className="card-heading">{item.title}</h3>
                 <p className="card-description">{item.description}</p>
                 <div className="card-metadata">
@@ -255,7 +252,7 @@ export function AnalysisResult({ decision, analysis, onReset, onRefine }: Props)
         >
           <ul className="cards-list">
             {priorityMismatches.map((item, i) => (
-              <li key={i} className="finding-card">
+              <li key={`${item.statedPriority}-${i}`} className="finding-card">
                 <h3 className="card-heading">{item.title}</h3>
                 <p className="card-description">{item.description}</p>
                 <div className="card-metadata">
@@ -284,7 +281,7 @@ export function AnalysisResult({ decision, analysis, onReset, onRefine }: Props)
         >
           <ul className="cards-list questions-list">
             {questions.map((item, i) => (
-              <li key={i} className="finding-card question-card">
+              <li key={`${item.question}-${i}`} className="finding-card question-card">
                 <h3 className="question-heading">“{item.question}”</h3>
                 <div className="card-metadata">
                   <div className="meta-block">
